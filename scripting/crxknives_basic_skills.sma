@@ -5,10 +5,10 @@
 #include <hamsandwich>
 
 #if !defined MAX_PLAYERS
-const MAX_PLAYERS = 32
+const MAX_PLAYERS                    = 32
 #endif
 
-new const PLUGIN_VERSION[]           = "1.0.1"
+new const PLUGIN_VERSION[]           = "1.1"
 
 const NOT_SET                        = -1
 const Float:NOT_SET_F                = -1.0
@@ -23,6 +23,7 @@ const DEFAULT_GLOW_AMOUNT            = 40
 new const ATTRIBUTE_GRAVITY[]        = "GRAVITY"
 new const ATTRIBUTE_SPEED[]          = "SPEED"
 new const ATTRIBUTE_DAMAGE[]         = "DAMAGE"
+new const ATTRIBUTE_PROTECTION[]     = "PROTECTION"
 new const ATTRIBUTE_SILENT_STEPS[]   = "SILENT_STEPS"
 new const ATTRIBUTE_HEALTH_ON_KILL[] = "HEALTH_ON_KILL"
 new const ATTRIBUTE_ARMOR_ON_KILL[]  = "ARMOR_ON_KILL"
@@ -37,6 +38,7 @@ enum MoneyOnKill                     { money_on_kill, max_money }
 new g_iGravity                       [MAX_PLAYERS + 1],
 	Float:g_fSpeed                   [MAX_PLAYERS + 1],
 	g_szDamage                       [MAX_PLAYERS + 1][8],
+	g_szProtection                   [MAX_PLAYERS + 1][8],
 	bool:g_bSilentSteps              [MAX_PLAYERS + 1],
 	g_eHealthOnKill                  [MAX_PLAYERS + 1][HealthOnKill],
 	g_eArmorOnKill                   [MAX_PLAYERS + 1][ArmorOnKill],
@@ -70,6 +72,7 @@ public crxknives_knife_updated(id, iKnife, bool:bOnConnect)
 		g_iGravity[id]                      = NOT_SET
 		g_fSpeed[id]                        = NOT_SET_F
 		g_szDamage[id][0]                   = EOS
+		g_szProtection[id][0]               = EOS
 		g_bSilentSteps[id]                  = false
 		g_eHealthOnKill[id][health_on_kill] = NOT_SET
 		g_eArmorOnKill[id][armor_on_kill]   = NOT_SET
@@ -112,6 +115,11 @@ public crxknives_knife_updated(id, iKnife, bool:bOnConnect)
 	if(!crxknives_get_attribute_str(id, ATTRIBUTE_DAMAGE, g_szDamage[id], charsmax(g_szDamage[])))
 	{
 		g_szDamage[id][0] = EOS
+	}
+
+	if(!crxknives_get_attribute_str(id, ATTRIBUTE_PROTECTION, g_szProtection[id], charsmax(g_szProtection[])))
+	{
+		g_szProtection[id][0] = EOS
 	}
 
 	if(crxknives_get_attribute_int(id, ATTRIBUTE_SILENT_STEPS, iValue) && iValue == 1)
@@ -220,7 +228,9 @@ public OnPlayerKilled()
 	new iAttacker = read_data(1), iVictim = read_data(2)
 
 	if(!is_user_connected(iAttacker) || iAttacker == iVictim || !can_use_skill(iAttacker))
+	{
 		return
+	}
 
 	if(g_eHealthOnKill[iAttacker][health_on_kill] != NOT_SET)
 	{
@@ -282,10 +292,15 @@ public OnChangeWeapon(id)
 
 public PreTakeDamage(iVictim, iInflictor, iAttacker, Float:fDamage, iDamageBits)
 {
-	if(!is_user_alive(iAttacker) || !g_szDamage[iAttacker][0] || (g_bKnifeOnlySkills && ((get_user_weapon(iAttacker) != CSW_KNIFE) || iAttacker != iInflictor)))
-		return
+	if(g_szProtection[iVictim][0] && can_use_skill(iVictim))
+	{
+		SetHamParamFloat(4, math_add_f(fDamage, g_szProtection[iVictim]))
+	}
 
-	SetHamParamFloat(4, math_add_f(fDamage, g_szDamage[iAttacker]))
+	if(is_user_alive(iAttacker) && g_szDamage[iAttacker][0] && can_use_skill(iAttacker) && iAttacker == iInflictor)
+	{
+		SetHamParamFloat(4, math_add_f(fDamage, g_szDamage[iAttacker]))
+	}
 }
 
 public update_player_speed()
@@ -333,16 +348,22 @@ Float:math_add_f(Float:fNum, const szMath[])
 	cOperator = szNewMath[0]
 
 	if(!isdigit(szNewMath[0]))
+	{
 		szNewMath[0] = ' '
+	}
 
 	if(bPercent)
+	{
 		replace(szNewMath, charsmax(szNewMath), "%", "")
+	}
 
 	trim(szNewMath)
 	fMath = str_to_float(szNewMath)
 
 	if(bPercent)
+	{
 		fMath *= fNum / 100
+	}
 
 	switch(cOperator)
 	{
